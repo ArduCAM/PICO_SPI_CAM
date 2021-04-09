@@ -1,0 +1,11 @@
+cmake_minimum_required(VERSION 3.12)
+
+#include(pico-sdk/pico_sdk_init.cmake)
+# Pull in PICO SDK (must be before project)
+include(pico_sdk_import.cmake)
+project(rp2040_arducam)
+set(CMAKE_C_STANDARD 11)
+set(CMAKE_CXX_STANDARD 17)
+pico_sdk_init()
+add_subdirectory(ArduCAM)
+add_subdirectory(Examples/Arducam_MINI_2MP_Plus_Videostreaing)
