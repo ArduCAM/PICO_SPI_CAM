@@ -656,10 +656,6 @@ void on_uart_rx() {
     while (uart_is_readable(UART_ID)) {
        usart_Command = uart_getc(UART_ID);
        usart_symbol=1;
-       // Can we send it back?
-       if (uart_is_writable(UART_ID)) {
-           uart_putc(UART_ID, usart_Command);
-       }
     }
 }
 void ArduCAM:: Arducam_uart_init(int baudrate){
