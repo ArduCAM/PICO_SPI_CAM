@@ -27,7 +27,7 @@ Open the PC software, configure the port number, baud rate, camera model, and cl
 ![EasyBehavior](https://github.com/UCTRONICS/pic/blob/master/pico/Spi%20Camera/2.png)
 
 # Use Python to drive SPI camera
-- Note: The development system is Windows. 
+## Note: The development system is Windows. 
 To configure the development environment, please refer to the official manual, the link is as follows.
 ```bash
 https://circuitpython.org/
