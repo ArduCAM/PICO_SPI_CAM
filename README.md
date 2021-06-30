@@ -37,15 +37,15 @@ Development software download link.
 https://thonny.org/
 ```
 
-Copy the files in the PICO_SPI_CAM/Python/ path to the Pico device. 
+## Copy the files in the PICO_SPI_CAM/Python/ path to the Pico device. 
 ![EasyBehavior](https://github.com/UCTRONICS/pic/blob/master/pico/Spi%20Camera/3.png)
-Open Thonny software, select environment and port number. 
+## Open Thonny software, select environment and port number. 
 ![EasyBehavior](https://github.com/UCTRONICS/pic/blob/master/pico/Spi%20Camera/4.png)
 ![EasyBehavior](https://github.com/UCTRONICS/pic/blob/master/pico/Spi%20Camera/5.png)
-Open the camera driver. 
+## Open the camera driver. 
 ![EasyBehavior](https://github.com/UCTRONICS/pic/blob/master/pico/Spi%20Camera/6.png)
 ![EasyBehavior](https://github.com/UCTRONICS/pic/blob/master/pico/Spi%20Camera/7.png)
-Click Run, it displays [48], CameraType is OV2640, and SPI interface OK means that the camera is initialized. 
+## Click Run, it displays [48], CameraType is OV2640, and SPI interface OK means that the camera is initialized. 
 ![EasyBehavior](https://github.com/UCTRONICS/pic/blob/master/pico/Spi%20Camera/8.png)
-Open the PC software, configure the port number, baud rate, camera model, and click Capyure to see the image. 
+## Open the PC software, configure the port number, baud rate, camera model, and click Capyure to see the image. 
 ![EasyBehavior](https://github.com/UCTRONICS/pic/blob/master/pico/Spi%20Camera/9.png)
