@@ -658,30 +658,8 @@ void on_uart_rx() {
        usart_symbol=1;
     }
 }
-void ArduCAM:: Arducam_uart_init(int baudrate){
-    stdio_uart_init();
- // Set up our UART with the required speed.
-    uart_init(UART_ID, baudrate);
-    // Set the TX and RX pins by using the function select on the GPIO
-    // Set datasheet for more information on function select
-    gpio_set_function(UART_TX_PIN, GPIO_FUNC_UART);
-    gpio_set_function(UART_RX_PIN, GPIO_FUNC_UART);
-    // Set our data format
-    uart_set_format(UART_ID, DATA_BITS, STOP_BITS, PARITY);
-    // Turn off FIFO's - we want to do this character by character
-    uart_set_fifo_enabled(UART_ID, false);
-     // Set up a RX interrupt
-    // We need to set up the handler first
-    // Select correct interrupt for the UART we are using
-    int UART_IRQ = UART_ID == uart0 ? UART0_IRQ : UART1_IRQ;
-
-    // And set up and enable the interrupt handlers
-    irq_set_exclusive_handler(UART_IRQ, on_uart_rx);
-    irq_set_enabled(UART_IRQ, true);
-
-    // Now enable the UART to send interrupts - RX only
-    uart_set_irq_enables(UART_ID, true, false);
-
+void ArduCAM:: Arducam_init(void)
+{
     // This example will use I2C0 on GPIO4 (SDA) and GPIO5 (SCL)
   i2c_init(I2C_PORT, 100 * 1000);
   gpio_set_function(PIN_SDA, GPIO_FUNC_I2C);

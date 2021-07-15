@@ -11,8 +11,8 @@ target_link_libraries(ArduCAM_Mini_2MP_Plus_4CAM_VideoStreaming
 	hardware_pwm
 	ArduCAM
 )
-pico_enable_stdio_usb(ArduCAM_Mini_2MP_Plus_4CAM_VideoStreaming 0)
-pico_enable_stdio_uart(ArduCAM_Mini_2MP_Plus_4CAM_VideoStreaming 1)
+pico_enable_stdio_usb(ArduCAM_Mini_2MP_Plus_4CAM_VideoStreaming 1)
+pico_enable_stdio_uart(ArduCAM_Mini_2MP_Plus_4CAM_VideoStreaming 0)
 # create map/bin/hex file etc.
 pico_add_extra_outputs(ArduCAM_Mini_2MP_Plus_4CAM_VideoStreaming)
 

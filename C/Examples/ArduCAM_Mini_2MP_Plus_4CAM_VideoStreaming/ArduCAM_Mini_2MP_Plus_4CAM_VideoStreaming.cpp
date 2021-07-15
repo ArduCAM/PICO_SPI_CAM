@@ -7,6 +7,15 @@
 #include "hardware/irq.h"
 #include "ov2640_regs.h"
 #include <cstdlib>
+#include "bsp/board.h"
+#include "tusb.h"
+#include "pico/mutex.h"
+
+
+static mutex_t usb_mutex;
+void SerialUsb(uint8_t* buffer,uint32_t lenght);
+int SerialUSBAvailable(void);
+int SerialUsbRead(void);
 
 const int CS1 = 5;
 const int CS2 = 6;
@@ -26,7 +35,9 @@ int main(void)
   uint8_t cam1=1,cam2=1,cam3=1,cam4=1;
   uint8_t vid, pid;
   uint8_t cameraCommand;
-  myCAM1.Arducam_uart_init(921600);
+  stdio_init_all();
+  tusb_init();
+  myCAM1.Arducam_init();	
   gpio_init(CS1);
   gpio_set_dir(CS1, GPIO_OUT);
   gpio_put(CS1, 1);
@@ -124,9 +135,9 @@ int main(void)
     uint8_t temp = 0xff, temp_last = 0;
     uint8_t start_capture = 0;
     uint8_t finish_count;
-    if(usart_symbol==1)
+    if(SerialUSBAvailable())
     {
-      usart_symbol=0;
+      usart_Command=SerialUsbRead();
       switch (usart_Command)
       {
          case 0:
@@ -179,28 +190,28 @@ int main(void)
       {
         flag[2]=0x01;//flag of cam1
         sleep_ms(1);
-        uart_write_blocking(UART_ID, flag, 5);
+        SerialUsb(flag, 5);
         read_fifo_burst(myCAM1);
       }
       if(cam2)
       {
         flag[2]=0x02;//flag of cam1
         sleep_ms(1);
-        uart_write_blocking(UART_ID, flag, 5);
+        SerialUsb(flag, 5);
         read_fifo_burst(myCAM2);
       }
       if(cam3)
       {
         flag[2]=0x03;//flag of cam1
         sleep_ms(1);
-        uart_write_blocking(UART_ID, flag, 5);
+        SerialUsb(flag, 5);
         read_fifo_burst(myCAM3); 
       } 
       if(cam4)
       {
         flag[2]=0x04;//flag of cam1
         sleep_ms(1);
-        uart_write_blocking(UART_ID, flag, 5);
+        SerialUsb(flag, 5);
         read_fifo_burst(myCAM4);
 
       }  
@@ -208,37 +219,42 @@ int main(void)
       case 0x20: 
       while(1)
       {
-        if(usart_symbol==1)
+        if(SerialUSBAvailable())
         {
-          usart_symbol=0;
-          if (usart_Command == 0x21)break;
+          usart_Command=SerialUsbRead();
         }
+        if (usart_Command == 0x21)
+        {
+          usart_Command=0xff;
+          break;
+        }
+        
         if(cam1)
         {
           flag[2]=0x01;//flag of cam1
           sleep_ms(1);
-          uart_write_blocking(UART_ID, flag, 5);
+          SerialUsb(flag, 5);
           read_fifo_burst(myCAM1);
         }
         if(cam2)
         {
           flag[2]=0x02;//flag of cam1
           sleep_ms(1);
-          uart_write_blocking(UART_ID, flag, 5);
+          SerialUsb(flag, 5);
           read_fifo_burst(myCAM2); 
         }
         if(cam3)
         {
           flag[2]=0x03;//flag of cam1
           sleep_ms(1);
-          uart_write_blocking(UART_ID, flag, 5);
+          SerialUsb(flag, 5);
           read_fifo_burst(myCAM3); 
         } 
         if(cam4)
         {
           flag[2]=0x04;//flag of cam1
           sleep_ms(1);
-          uart_write_blocking(UART_ID, flag, 5);
+          SerialUsb(flag, 5);
           read_fifo_burst(myCAM4);
         }  
       }
@@ -253,22 +269,67 @@ int main(void)
 
 uint8_t read_fifo_burst(ArduCAM myCAM)
 {
-   int i , count;
-    //Flush the FIFO
-    myCAM.flush_fifo();
-    //Start capture
-    myCAM.start_capture(); 
-    while(!myCAM.get_bit(ARDUCHIP_TRIG , CAP_DONE_MASK));
-    int length = myCAM.read_fifo_length();
-   uint8_t * imageBuf =(uint8_t *) malloc(length*sizeof(uint8_t));
-    count = length;
-    i = 0 ;
-    myCAM.CS_LOW();
-    myCAM.set_fifo_burst();//Set fifo burst mode
-    spi_read_blocking(SPI_PORT, BURST_FIFO_READ,imageBuf, length);
-    uart_write_blocking(UART_ID, imageBuf, length);
-    count = 0;
-    myCAM.CS_HIGH();
-    free(imageBuf);
-    return 1;
+  int i , count;
+  int length = myCAM.read_fifo_length();
+  uint8_t * imageBuf =(uint8_t *) malloc(length*sizeof(uint8_t));
+  i = 0 ;
+  myCAM.CS_LOW();
+  myCAM.set_fifo_burst();//Set fifo burst mode
+  spi_read_blocking(SPI_PORT, BURST_FIFO_READ,imageBuf, length);
+  myCAM.CS_HIGH();
+  SerialUsb(imageBuf, length);
+  free(imageBuf);
+  return 1;
+}
+
+
+void SerialUsb(uint8_t* buf,uint32_t length)
+{
+    static uint64_t last_avail_time;
+    int i = 0;
+    if (tud_cdc_connected()) 
+    {
+        for (int i = 0; i < length;) 
+        {
+            int n = length - i;
+            int avail = tud_cdc_write_available();
+            if (n > avail) n = avail;
+            if (n) 
+            {
+                int n2 = tud_cdc_write(buf + i, n);
+                tud_task();
+                tud_cdc_write_flush();
+                i += n2;
+                last_avail_time = time_us_64();
+            } 
+            else 
+            {
+                tud_task();
+                tud_cdc_write_flush();
+                if (!tud_cdc_connected() ||
+                    (!tud_cdc_write_available() && time_us_64() > last_avail_time + 1000000 /* 1 second */)) {
+                    break;
+                }
+            }
+        }
+    } 
+    else 
+    {
+        // reset our timeout
+        last_avail_time = 0;
+    }
+}
+
+int SerialUSBAvailable(void)
+{
+  return tud_cdc_available();
+} 
+
+int SerialUsbRead(void) 
+{
+  if (tud_cdc_connected() && tud_cdc_available()) 
+  {
+    return tud_cdc_read_char();
+  }
+  return -1;
 }

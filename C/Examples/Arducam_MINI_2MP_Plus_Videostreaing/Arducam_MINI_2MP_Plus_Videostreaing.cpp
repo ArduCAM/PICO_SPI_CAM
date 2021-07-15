@@ -7,10 +7,18 @@
 #include "hardware/irq.h"
 #include "ov2640_regs.h"
 #include <cstdlib>
+#include "stdio.h"
+#include "bsp/board.h"
+#include "tusb.h"
+#include "pico/mutex.h"
 
 
+static mutex_t usb_mutex;
+void SerialUsb(uint8_t* buffer,uint32_t lenght);
+int SerialUSBAvailable(void);
+int SerialUsbRead(void);
 #define BMPIMAGEOFFSET 66
-const uint8_t bmp_header[BMPIMAGEOFFSET] =
+uint8_t bmp_header[BMPIMAGEOFFSET] =
 {
   0x42, 0x4D, 0x36, 0x58, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x42, 0x00, 0x00, 0x00, 0x28, 0x00,
   0x00, 0x00, 0x40, 0x01, 0x00, 0x00, 0xF0, 0x00, 0x00, 0x00, 0x01, 0x00, 0x10, 0x00, 0x03, 0x00,
@@ -26,17 +34,19 @@ int mode = 0;
 uint8_t start_capture = 0;
 ArduCAM myCAM( OV2640, CS );
 uint8_t read_fifo_burst(ArduCAM myCAM);
-
 int main() 
 {
+  int value=0;
   uint8_t vid, pid;
   uint8_t cameraCommand;
-	  // put your setup code here, to run once:
-	myCAM.Arducam_uart_init(921600);	
+  stdio_init_all();
+  tusb_init();
+	// put your setup code here, to run once:
+	myCAM.Arducam_init();	
   gpio_init(CS);
   gpio_set_dir(CS, GPIO_OUT);
   gpio_put(CS, 1);
-  //Reset the CPLD
+    //Reset the CPLD
   myCAM.write_reg(0x07, 0x80);
   sleep_ms(100);
   myCAM.write_reg(0x07, 0x00);
@@ -52,7 +62,6 @@ int main()
 				printf("ACK CMD SPI interface OK.END"); break;
 			}
 	}
-
   
 	while (1) {
 		//Check if the camera module type is OV2640
@@ -68,20 +77,22 @@ int main()
 		}
   }
 
+
 	 //Change to JPEG capture mode and initialize the OV5642 module
   myCAM.set_format(JPEG);
   myCAM.InitCAM();
   myCAM.OV2640_set_JPEG_size(OV2640_320x240);
   sleep_ms(1000);
   myCAM.clear_fifo_flag();
-
+  
 	while (1) 
   {
     uint8_t cameraCommand_last = 0;
     uint8_t is_header = 0;
-    if(usart_symbol==1)
+    
+    if(SerialUSBAvailable())
     {
-      usart_symbol=0;
+      usart_Command=SerialUsbRead();
       switch (usart_Command)
       {
         case 0:
@@ -270,10 +281,15 @@ int main()
     {
         while (1)
         {
+          if(SerialUSBAvailable())
+          {
+            usart_Command=SerialUsbRead();
+          }
           if (usart_Command == 0x21)
           {
             start_capture = 0;
             mode = 0;
+            usart_Command=0xff;
             printf("ACK CMD CAM stop video streaming. END");
             break;
           }
@@ -377,6 +393,7 @@ int main()
             read_fifo_burst(myCAM);
             start_capture = 2;
           }
+         
         }
    }
     else if (mode == 3)
@@ -413,8 +430,8 @@ int main()
         symbol[1]=0xaa;
         myCAM.CS_LOW();
         myCAM.set_fifo_burst();//Set fifo burst mode
-        uart_write_blocking(UART_ID, symbol, sizeof(symbol));
-        uart_write_blocking(UART_ID, bmp_header,BMPIMAGEOFFSET);
+        SerialUsb(symbol, sizeof(symbol));
+        SerialUsb(bmp_header,BMPIMAGEOFFSET);
         spi_read_blocking(SPI_PORT, BURST_FIFO_READ,symbol, 1);
         uint8_t VH, VL;
         int i = 0, j = 0;
@@ -424,15 +441,15 @@ int main()
           {
             spi_read_blocking(SPI_PORT, BURST_FIFO_READ,&VH, 1);
             spi_read_blocking(SPI_PORT, BURST_FIFO_READ,&VL, 1);
-            uart_write_blocking(UART_ID, &VL, 1);
+            SerialUsb( &VL, 1);
             sleep_us(12);
-            uart_write_blocking(UART_ID, &VH, 1);
+            SerialUsb( &VH, 1);
             sleep_us(12);
           }
         }
         symbol[0]=0xbb;
         symbol[1]=0xcc;
-        uart_write_blocking(UART_ID, symbol, sizeof(symbol));
+        SerialUsb(symbol, sizeof(symbol));
         myCAM.CS_HIGH();
         //Clear the capture done flag
         myCAM.clear_fifo_flag();
@@ -446,14 +463,64 @@ uint8_t read_fifo_burst(ArduCAM myCAM)
   int i , count;
   int length = myCAM.read_fifo_length();
   uint8_t * imageBuf =(uint8_t *) malloc(length*sizeof(uint8_t));
-  count = length;
   i = 0 ;
   myCAM.CS_LOW();
   myCAM.set_fifo_burst();//Set fifo burst mode
   spi_read_blocking(SPI_PORT, BURST_FIFO_READ,imageBuf, length);
-  uart_write_blocking(UART_ID, imageBuf, length);
-  count = 0;
   myCAM.CS_HIGH();
+  SerialUsb(imageBuf, length);
   free(imageBuf);
   return 1;
+}
+
+
+void SerialUsb(uint8_t* buf,uint32_t length)
+{
+    static uint64_t last_avail_time;
+    int i = 0;
+    if (tud_cdc_connected()) 
+    {
+        for (int i = 0; i < length;) 
+        {
+            int n = length - i;
+            int avail = tud_cdc_write_available();
+            if (n > avail) n = avail;
+            if (n) 
+            {
+                int n2 = tud_cdc_write(buf + i, n);
+                tud_task();
+                tud_cdc_write_flush();
+                i += n2;
+                last_avail_time = time_us_64();
+            } 
+            else 
+            {
+                tud_task();
+                tud_cdc_write_flush();
+                if (!tud_cdc_connected() ||
+                    (!tud_cdc_write_available() && time_us_64() > last_avail_time + 1000000 /* 1 second */)) {
+                    break;
+                }
+            }
+        }
+    } 
+    else 
+    {
+        // reset our timeout
+        last_avail_time = 0;
+    }
+}
+
+int SerialUSBAvailable(void)
+{
+  return tud_cdc_available();
+} 
+
+int SerialUsbRead(void) 
+{
+  if (tud_cdc_connected() && tud_cdc_available()) 
+  {
+    return tud_cdc_read_char();
+  }
+  return -1;
 }
