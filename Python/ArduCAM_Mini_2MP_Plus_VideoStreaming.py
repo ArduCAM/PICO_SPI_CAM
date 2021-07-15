@@ -1,17 +1,19 @@
 import time as utime
 import busio
 import board
+import usb_cdc
 from Arducam import *
 from board import *
 
-
-once_number=1024
+once_number=128
 mode = 0
 start_capture = 0
 stop_flag=0
-buffer=bytearray(1024)
+data_in=0
+value_command=0
+flag_command=0
+buffer=bytearray(once_number)
 
-uart = busio.UART(tx=board.GP0,rx=board.GP1,baudrate=921600,bits=8,parity=None,stop=1,timeout=0)
 mycam = ArducamClass(OV2640)
 mycam.Camera_Detection()
 mycam.Spi_Test()
@@ -27,20 +29,24 @@ def read_fifo_burst():
     mycam.set_fifo_burst()
     while True:
         mycam.spi.readinto(buffer,start=0,end=once_number)
-        uart.write(buffer)
+        usb_cdc.data.write(buffer)
+        utime.sleep(0.00015)
         count+=once_number
         if count+once_number>lenght:
             count=lenght-count
             mycam.spi.readinto(buffer,start=0,end=count)
-            uart.write(buffer)
+            usb_cdc.data.write(buffer)
             mycam.SPI_CS_HIGH()
             mycam.clear_fifo_flag()
             break
     
 while True:
-    value=uart.read()
-    if value!=None:
-        value=int.from_bytes(value,"big")
+    if usb_cdc.data.in_waiting > 0:
+        value_command = usb_cdc.data.read()
+        flag_command=1
+    if flag_command==1:
+        flag_command=0
+        value=int.from_bytes(value_command,"big")
         if value==0:
             mycam.OV2640_set_JPEG_size(OV2640_160x120)
         elif value==1:
@@ -154,3 +160,4 @@ while True:
         else:
             mode=0
             start_capture=0
+
