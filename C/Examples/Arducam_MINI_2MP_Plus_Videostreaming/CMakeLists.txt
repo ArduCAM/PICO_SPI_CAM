@@ -1,5 +1,5 @@
 add_executable(Arducam_mini_2mp_plus_videostreaming
-        Arducam_MINI_2MP_Plus_Videostreaing.cpp 
+        Arducam_MINI_2MP_Plus_Videostreaming.cpp 
         )
 
 # Pull in our pico_stdlib which pulls in commonly used features

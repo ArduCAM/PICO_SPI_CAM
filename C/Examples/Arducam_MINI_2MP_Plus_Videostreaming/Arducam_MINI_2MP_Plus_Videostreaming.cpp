@@ -84,7 +84,7 @@ int main()
   myCAM.OV2640_set_JPEG_size(OV2640_320x240);
   sleep_ms(1000);
   myCAM.clear_fifo_flag();
-  
+
 	while (1) 
   {
     uint8_t cameraCommand_last = 0;

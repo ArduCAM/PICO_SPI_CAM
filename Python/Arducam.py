@@ -215,7 +215,8 @@ class ArducamClass(object):
         buffer[1]=addr&0xff
         buffer[2]=val
         self.iic_write(buffer)
-    
+        utime.sleep(0.003)
+
     def rdSensorReg16_8(self,addr):
         buffer=bytearray(2)
         rt=bytearray(1)
@@ -378,7 +379,6 @@ class ArducamClass(object):
             if (addr == 0xffff and val == 0xff):
                 return
             self.wrSensorReg16_8(addr, val)
-            utime.sleep(0.003)
             
     def set_format(self,mode):
         if mode==BMP or mode==JPEG or mode==RAW:   
